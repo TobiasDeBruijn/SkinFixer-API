@@ -80,6 +80,8 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         if error.next_request.is_some() {
             return HttpResponse::TooManyRequests().finish();
         }
+
+        return HttpResponse::InternalServerError().body("MineSkin Error");
     }
 
     let data = response.data.unwrap();
