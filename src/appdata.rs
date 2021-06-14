@@ -1,19 +1,55 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 #[derive(Clone, Debug)]
 pub struct AppData {
-    pub api_key: Option<String>
+    pub keys: Option<KeyRotation>
 }
 
 impl AppData {
-    pub fn new() -> Self {
-        use std::env::var;
-
-        let api_key = match var("API_KEY") {
-            Ok(k) => Some(k),
-            Err(_) => None
-        };
-
+    pub fn new(kr: Option<KeyRotation>) -> Self {
         Self {
-            api_key
+            keys: kr
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct KeyRotation {
+    keys:   Vec<String>,
+    index:  AtomicUsize,
+}
+
+impl Clone for KeyRotation {
+    fn clone(&self) -> Self {
+        Self {
+            keys: self.keys.clone(),
+            index: AtomicUsize::new(self.index.load(Ordering::SeqCst))
+        }
+    }
+}
+
+impl KeyRotation {
+    pub fn new(keys: Vec<String>) -> Self {
+        Self {
+            keys,
+            index: AtomicUsize::new(0)
+        }
+    }
+
+    fn increment_index(&self) {
+        let new_index = self.index.load(Ordering::SeqCst);
+        if new_index > self.keys.len() {
+            self.index.store(0, Ordering::SeqCst);
+        }
+
+        self.index.store(new_index, Ordering::SeqCst);
+    }
+
+    pub fn get_key(&self) -> &String {
+        let index = self.index.load(Ordering::SeqCst);
+        self.increment_index();
+
+        let key = self.keys.get(index).unwrap();
+        key
     }
 }

@@ -1,4 +1,4 @@
-use crate::appdata::AppData;
+use crate::appdata::{AppData, KeyRotation};
 use actix_web::{HttpServer, App};
 use actix_cors::Cors;
 
@@ -9,9 +9,19 @@ mod appdata;
 async fn main() -> std::io::Result<()> {
     println!("Starting SkinFixer API Server");
 
+    let kr = match std::env::var("API_KEY") {
+        Ok(k) => {
+            let k: Vec<String> = k.split(",").map(|c| c.to_string()).collect();
+
+            let kr = KeyRotation::new(k);
+            Some(kr)
+        },
+        Err(_) => None
+    };
+
     HttpServer::new(move|| {
         let cors = Cors::permissive();
-        let appdata = AppData::new();
+        let appdata = AppData::new(kr.clone());
 
         App::new()
             .wrap(cors)

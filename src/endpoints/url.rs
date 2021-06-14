@@ -34,8 +34,11 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         visibility: 0
     };
 
-    let url = match &data.api_key {
-        Some(k) => format!("{}?key={}", MINESKIN_API, k.clone()),
+    let url = match &data.keys {
+        Some(kr) => {
+            let k = kr.get_key();
+            format!("{}?key={}", MINESKIN_API, k.as_str())
+        },
         None => MINESKIN_API.to_string()
     };
 
@@ -69,10 +72,22 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         }
     };
 
+    if let Some(error) = response.error {
+        if let Some(error_code) = error.error_code {
+            return HttpResponse::BadRequest().body(error_code);
+        }
+
+        if error.next_request.is_some() {
+            return HttpResponse::TooManyRequests().finish();
+        }
+    }
+
+    let data = response.data.unwrap();
     let user_response = UserResponse {
-        value: response.data.texture.value,
-        signature: response.data.texture.signature
+        value: data.texture.value,
+        signature: data.texture.signature
     };
+
 
     HttpResponse::Ok().body(serde_json::to_string(&user_response).unwrap())
 }
