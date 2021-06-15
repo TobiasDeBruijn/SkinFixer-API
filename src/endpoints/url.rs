@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, web, post};
+use actix_web::{HttpResponse, web, get};
 use crate::AppData;
 use serde::Serialize;
 use rand::Rng;
@@ -13,7 +13,7 @@ pub struct MineskinRequest {
 
 const MINESKIN_API: &str = "https://api.mineskin.org/generate/url";
 
-#[post("/generate/url/{url}")]
+#[get("/generate/url/{url}")]
 pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData>) -> HttpResponse {
     let user_agent: String = rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(20).map(char::from).collect();
     let name: String = rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(32).map(char::from).collect();
@@ -64,7 +64,7 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         }
     };
 
-    let response: MineskinResponse = match serde_json::from_str(&response) {
+    let response_ser: MineskinResponse = match serde_json::from_str(&response) {
         Ok(res) => res,
         Err(e) => {
             eprintln!("Failed to deserialize Mineskin response: {:?}", e);
@@ -72,7 +72,7 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         }
     };
 
-    if let Some(error) = response.error {
+    if let Some(error) = response_ser.error {
         if let Some(error_code) = error.error_code {
             return HttpResponse::BadRequest().body(error_code);
         }
@@ -84,7 +84,11 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         return HttpResponse::InternalServerError().body("MineSkin Error");
     }
 
-    let data = response.data.unwrap();
+    if response_ser.data.is_none() {
+        return HttpResponse::InternalServerError().body(&response);
+    }
+
+    let data = response_ser.data.unwrap();
     let user_response = UserResponse {
         value: data.texture.value,
         signature: data.texture.signature

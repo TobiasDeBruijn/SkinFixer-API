@@ -64,7 +64,7 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
         }
     };
 
-    let response: MineskinResponse = match serde_json::from_str(&response) {
+    let response_ser: MineskinResponse = match serde_json::from_str(&response) {
         Ok(res) => res,
         Err(e) => {
             eprintln!("Failed to deserialize Mineskin response: {:?}", e);
@@ -72,7 +72,7 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
         }
     };
 
-    if let Some(error) = response.error {
+    if let Some(error) = response_ser.error {
         if let Some(error_code) = error.error_code {
             return HttpResponse::BadRequest().body(error_code);
         }
@@ -84,7 +84,11 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
         return HttpResponse::InternalServerError().body("MineSkin Error");
     }
 
-    let data = response.data.unwrap();
+    if response_ser.data.is_none() {
+        return HttpResponse::InternalServerError().body(&response);
+    }
+
+    let data = response_ser.data.unwrap();
     let user_response = UserResponse {
         value: data.texture.value,
         signature: data.texture.signature
