@@ -15,7 +15,6 @@ const MINESKIN_API: &str = "https://api.mineskin.org/generate/user";
 
 #[get("/generate/uuid/{uuid}")]
 pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppData>) -> HttpResponse {
-    let user_agent: String = rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(20).map(char::from).collect();
     let name: String = rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(32).map(char::from).collect();
 
     let uuid = match base64::decode(uuid) {
@@ -44,7 +43,7 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
 
     let request = match reqwest::blocking::Client::new()
         .post(&url)
-        .header("User-Agent", &user_agent)
+        .header("User-Agent", "SkinFixer-API")
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&payload).unwrap())
         .send() {
