@@ -4,7 +4,7 @@ pub mod uuid;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct MineskinResponse {
     pub data:   Option<MineskinSkinData>,
 
@@ -12,7 +12,7 @@ pub struct MineskinResponse {
     pub error:  Option<MineskinError>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MineskinError {
     pub error:          String,
@@ -21,12 +21,12 @@ pub struct MineskinError {
     pub delay:          Option<i64>
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct MineskinSkinData {
     pub texture: MineskinTextureInfo
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct MineskinTextureInfo {
     pub value:      String,
     pub signature:  String

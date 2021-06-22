@@ -72,7 +72,8 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
     };
 
     if let Some(error) = response_ser.error {
-        if let Some(error_code) = error.error_code {
+        if let Some(error_code) = &error.error_code {
+            eprintln!("MineSkinError: {:?}", &error);
             return HttpResponse::BadRequest().body(error_code);
         }
 
@@ -80,10 +81,12 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
             return HttpResponse::TooManyRequests().finish();
         }
 
+        eprintln!("MineSkinError: {:?}", &error);
         return HttpResponse::InternalServerError().body("MineSkin Error");
     }
 
     if response_ser.data.is_none() {
+        eprintln!("MineSkinError: {:?}", &response_ser);
         return HttpResponse::InternalServerError().body(&response);
     }
 
