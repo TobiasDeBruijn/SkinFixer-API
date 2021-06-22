@@ -86,7 +86,7 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
     }
 
     if response_ser.data.is_none() {
-        eprintln!("MineSkinError: {:?}", &response_ser);
+        eprintln!("MineSkinError: '{:?}': '{:?}'", &response_ser, &response);
         return HttpResponse::InternalServerError().body(&response);
     }
 
