@@ -33,13 +33,8 @@ pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData
         visibility: 0
     };
 
-    let url = match &data.keys {
-        Some(kr) => {
-            let k = kr.get_key();
-            format!("{}?key={}", MINESKIN_API, k.as_str())
-        },
-        None => MINESKIN_API.to_string()
-    };
+    let key = data.keys.get_key();
+    let url = format!("{}?key={}", MINESKIN_API, key);
 
     let request = match reqwest::blocking::Client::new()
         .post(&url)

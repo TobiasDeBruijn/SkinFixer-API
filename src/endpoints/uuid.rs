@@ -5,8 +5,8 @@ use rand::Rng;
 use crate::endpoints::{MineskinResponse, UserResponse};
 
 #[derive(Serialize)]
-pub struct MineskinRequest {
-    uuid:       String,
+pub struct MineskinRequest<'a> {
+    uuid:       &'a str,
     visibility: u8,
     name:       String
 }
@@ -27,19 +27,27 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
         Err(e) => return HttpResponse::BadRequest().body(&format!("Invalid UUID: {:?}", e))
     };
 
+    match crate::cache::get_uuid(&data, &uuid)  {
+        Ok(Some((sig, val))) => {
+            let resp = UserResponse {
+                signature: sig,
+                value: val
+            };
+
+            return HttpResponse::Ok().body(serde_json::to_string(&resp).unwrap());
+        },
+        Ok(None) => {},
+        Err(e) => eprintln!("Failed to query skin cache: {:?}. Falling back to the MineSkin API", e)
+    };
+
     let payload = MineskinRequest {
-        uuid,
+        uuid: &uuid,
         name,
         visibility: 0
     };
 
-    let url = match &data.keys {
-        Some(kr) => {
-            let k = kr.get_key();
-            format!("{}?key={}", MINESKIN_API, k.as_str())
-        },
-        None => MINESKIN_API.to_string()
-    };
+    let key = data.keys.get_key();
+    let url = format!("{}?key={}", MINESKIN_API, key);
 
     let request = match reqwest::blocking::Client::new()
         .post(&url)
@@ -90,10 +98,16 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
         return HttpResponse::InternalServerError().body(&response);
     }
 
-    let data = response_ser.data.unwrap();
+    let mdata = response_ser.data.unwrap();
+
+    match crate::cache::set_uuid(&data, &uuid, &mdata.texture.signature, &mdata.texture.value) {
+        Ok(_) => {},
+        Err(e) => eprintln!("Failed to insert skin into uuid cache: {:?}", e)
+    }
+
     let user_response = UserResponse {
-        value: data.texture.value,
-        signature: data.texture.signature
+        value: mdata.texture.value,
+        signature: mdata.texture.signature
     };
 
     HttpResponse::Ok().body(serde_json::to_string(&user_response).unwrap())
