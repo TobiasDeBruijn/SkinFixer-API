@@ -2,4 +2,5 @@
 API for the [SkinFixer Minecraft Spigot plugin](https://github.com/TheDutchMC/SkinFixer)
 
 ## TODO
-- Implement UUID cache
+- [x] Implement UUID cache
+- [ ] Implement URL cache, this doesn't need a TTL either
