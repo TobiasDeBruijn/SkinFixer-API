@@ -37,6 +37,11 @@ impl AppData {
             Err(e) => return Err(e.to_string())
         }
 
+        match conn.exec::<usize, &str, mysql::Params>("CREATE TABLE IF NOT EXISTS player_cache (`uuid` varchar(36) PRIMARY KEY NOT NULL, `nickname` varchar(16) NOT NULL, `exp` bigint(64) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", mysql::params::Params::Empty) {
+            Ok(_) => {}
+            Err(e) => return Err(e.to_string())
+        }
+
         Ok(())
     }
 }

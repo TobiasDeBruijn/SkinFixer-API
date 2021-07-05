@@ -32,9 +32,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .data(appdata.clone())
-            .service(crate::endpoints::url::generate)
-            .service(crate::endpoints::uuid::generate)
+            .service(crate::endpoints::generate::url::generate)
+            .service(crate::endpoints::generate::uuid::generate)
             .service(crate::endpoints::up::up)
+            .service(crate::endpoints::player::get_by_name)
 
     }).bind("0.0.0.0:8080")?.run().await
 }

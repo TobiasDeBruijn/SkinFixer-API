@@ -1,47 +1,34 @@
 use actix_web::{HttpResponse, web, get};
-use crate::AppData;
 use serde::Serialize;
 use rand::Rng;
-use crate::endpoints::{MineskinResponse, UserResponse};
+use crate::endpoints::generate::{MineskinResponse, UserResponse};
+use crate::appdata::AppData;
 
 #[derive(Serialize)]
-pub struct MineskinRequest<'a> {
-    uuid:       &'a str,
+pub struct MineskinRequest {
+    url:        String,
     visibility: u8,
     name:       String
 }
 
-const MINESKIN_API: &str = "https://api.mineskin.org/generate/user";
+const MINESKIN_API: &str = "https://api.mineskin.org/generate/url";
 
-#[get("/generate/uuid/{uuid}")]
-pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppData>) -> HttpResponse {
+#[get("/generate/url/{url}")]
+pub async fn generate(web::Path(url): web::Path<String>, data: web::Data<AppData>) -> HttpResponse {
     let name: String = rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(32).map(char::from).collect();
 
-    let uuid = match base64::decode(uuid) {
-        Ok(uuid) => uuid,
-        Err(e) => return HttpResponse::BadRequest().body(&format!("Invalid UUID: {:?}", e))
+    let url = match base64::decode(url) {
+        Ok(u) => u,
+        Err(e) => return HttpResponse::BadRequest().body(&format!("Invalid URL: {:?}", e))
     };
 
-    let uuid = match String::from_utf8(uuid) {
-        Ok(uuid) => uuid,
-        Err(e) => return HttpResponse::BadRequest().body(&format!("Invalid UUID: {:?}", e))
-    };
-
-    match crate::cache::get_uuid(&data, &uuid)  {
-        Ok(Some((sig, val))) => {
-            let resp = UserResponse {
-                signature: sig,
-                value: val
-            };
-
-            return HttpResponse::Ok().body(serde_json::to_string(&resp).unwrap());
-        },
-        Ok(None) => {},
-        Err(e) => eprintln!("Failed to query skin cache: {:?}. Falling back to the MineSkin API", e)
+    let url = match String::from_utf8(url) {
+        Ok(u) => u,
+        Err(e) => return HttpResponse::BadRequest().body(&format!("Invalid URL: {:?}", e))
     };
 
     let payload = MineskinRequest {
-        uuid: &uuid,
+        url,
         name,
         visibility: 0
     };
@@ -58,7 +45,7 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
 
         Ok(req) => req,
         Err(e) => {
-            eprintln!("Failed to request skin by UUID from Mineskin: {:?}", e);
+            eprintln!("Failed to request skin by URL from Mineskin: {:?}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -66,7 +53,7 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
     let response = match request.text() {
         Ok(res) => res,
         Err(e) => {
-            eprintln!("Failed to deserialize Mineskin response: {:?}", e);
+            eprintln!("Failed to convert Mineskin response: {:?}", e);
             return HttpResponse::InternalServerError().finish()
         }
     };
@@ -98,17 +85,12 @@ pub async fn generate(web::Path(uuid): web::Path<String>, data: web::Data<AppDat
         return HttpResponse::InternalServerError().body(&response);
     }
 
-    let mdata = response_ser.data.unwrap();
-
-    match crate::cache::set_uuid(&data, &uuid, &mdata.texture.signature, &mdata.texture.value) {
-        Ok(_) => {},
-        Err(e) => eprintln!("Failed to insert skin into uuid cache: {:?}", e)
-    }
-
+    let data = response_ser.data.unwrap();
     let user_response = UserResponse {
-        value: mdata.texture.value,
-        signature: mdata.texture.signature
+        value: data.texture.value,
+        signature: data.texture.signature
     };
+
 
     HttpResponse::Ok().body(serde_json::to_string(&user_response).unwrap())
 }
