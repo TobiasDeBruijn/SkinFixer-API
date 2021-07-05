@@ -3,6 +3,7 @@ use mysql::prelude::Queryable;
 use mysql::{Row, Params, params};
 use crate::appdata::AppData;
 use serde::{Serialize, Deserialize};
+use std::net::Shutdown::Read;
 
 #[derive(Serialize)]
 struct Response {
@@ -72,7 +73,7 @@ pub async fn get_by_name(web::Path(nickname): web::Path<String>, data: web::Data
 
             let uuid = match get_uuid_from_mojang(&nickname) {
                 Ok(Some(uuid)) => uuid,
-                Ok(None) => return HttpResponse::NotFound().body("No UUID was found with that nickname"),
+                Ok(None) => return HttpResponse::NotFound().body(serde_json::to_string(&Response { uuid: None }).unwrap()),
                 Err(e) => {
                     eprintln!("Failed to query Mojang API for UUID by nickname: {}", &e);
                     return HttpResponse::InternalServerError().body(&format!("Mojang API returned an error: {}", &e));
