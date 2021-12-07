@@ -1,38 +1,19 @@
 use crate::appdata::AppData;
 use mysql::prelude::Queryable;
-use mysql::{Row, Params, params};
+use mysql::{Row, params};
+use crate::Result;
 
-pub fn set_uuid(appdata: &AppData, uuid: &str, signature: &str, value: &str) -> Result<(), String> {
-    let mut conn = match appdata.pool.get_conn() {
-        Ok(c) => c,
-        Err(e) => return Err(e.to_string())
-    };
+pub fn set_uuid(appdata: &AppData, uuid: &str, signature: &str, value: &str) -> Result<()> {
+    let mut conn = appdata.get_conn()?;
+    let exp = (time::OffsetDateTime::now_utc() + time::Duration::days(60)).unix_timestamp();
+    conn.exec_drop("INSERT INTO uuid_cache (uuid, signature, value, exp) VALUES (:uuid, :signature, :value, :exp)", params!(uuid, signature, value, exp))?;
 
-    let exp = chrono::Utc::now().timestamp() + (10 * 24 * 60 * 60);
-    match conn.exec::<usize, &str, Params>("INSERT INTO uuid_cache (uuid, signature, value, exp) VALUES (:uuid, :signature, :value, :exp)", params! {
-        "uuid" => uuid,
-        "signature" => signature,
-        "value" => value,
-        "exp" => exp
-    }) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e.to_string())
-    }
+    Ok(())
 }
 
-pub fn get_uuid(appdata: &AppData, uuid: &str) -> Result<Option<(String, String)>, String> {
-    let mut conn = match appdata.pool.get_conn() {
-        Ok(c) => c,
-        Err(e) => return Err(e.to_string())
-    };
-
-    let query = match conn.exec::<Row, &str, Params>("SELECT signature,value,exp FROM uuid_cache WHERE uuid = :uuid", params! {
-        "uuid" => uuid
-    }) {
-        Ok(q) => q,
-        Err(e) => return Err(e.to_string())
-    };
-
+pub fn get_uuid(appdata: &AppData, uuid: &str) -> Result<Option<(String, String)>> {
+    let mut conn = appdata.get_conn()?;
+    let query: Vec<Row> = conn.exec("SELECT signature,value,exp FROM uuid_cache WHERE uuid = :uuid", params!(uuid))?;
 
     let mut sig = None;
     let mut val = None;
@@ -42,15 +23,12 @@ pub fn get_uuid(appdata: &AppData, uuid: &str) -> Result<Option<(String, String)
         let exp = row.get::<i64, &str>("exp");
 
         if let (Some(signature), Some(value), Some(exp)) = (signature, value, exp) {
-            let now = chrono::Utc::now().timestamp();
+            let now = time::OffsetDateTime::now_utc().unix_timestamp();
             if now > exp {
-                match conn.exec::<Row, &str, Params>("DELETE FROM uuid_cache WHERE uuid = :uuid AND signature = :signature", params! {
-                    "uuid" => uuid,
-                    "signature" => signature
-                }) {
-                    Ok(_) => continue,
-                    Err(e) => return Err(e.to_string())
-                }
+                conn.exec_drop("DELETE FROM uuid_cache WHERE uuid = :uuid AND signature = :signature", params! {
+                    "uuid" => &uuid,
+                    "signature" => &signature
+                })?;
             }
 
             sig = Some(signature);

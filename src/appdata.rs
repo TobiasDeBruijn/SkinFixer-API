@@ -1,5 +1,11 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
-use mysql::prelude::Queryable;
+use serde::Deserialize;
+use crate::Result;
+
+mod migrations {
+    use refinery::embed_migrations;
+    embed_migrations!("./migrations");
+}
 
 #[derive(Clone, Debug)]
 pub struct AppData {
@@ -8,45 +14,36 @@ pub struct AppData {
 }
 
 impl AppData {
-    pub fn new(env: &Env) -> Result<Self, String> {
+    pub fn new(env: &Env) -> Result<Self> {
         let key_vec: Vec<String> = env.api_key.split(",").map(|c| c.to_string()).collect();
         let keys = KeyRotation::new(key_vec);
 
-        let mysql_uri = format!("mysql://{}:{}@{}/{}", env.db_username, env.db_password, env.db_host, env.db_name);
-        let pool = match mysql::Pool::new(mysql_uri) {
-            Ok(p) => p,
-            Err(e) => return Err(e.to_string())
-        };
+        let opts = mysql::OptsBuilder::new()
+            .ip_or_hostname(Some(&env.db_host))
+            .db_name(Some(&env.db_name))
+            .user(Some(&env.db_username))
+            .pass(Some(&env.db_password));
+        let pool = mysql::Pool::new(opts)?;
 
-        Self::migrate(&pool)?;
-
-        Ok(Self {
+        let this = Self {
             keys,
             pool
-        })
+        };
+        Ok(this)
     }
 
-    fn migrate(pool: &mysql::Pool) -> Result<(), String> {
-        let mut conn = match pool.get_conn() {
-            Ok(c) => c,
-            Err(e) => return Err(e.to_string())
-        };
+    pub fn get_conn(&self) -> mysql::Result<mysql::PooledConn> {
+        self.pool.get_conn()
+    }
 
-        match conn.exec::<usize, &str, mysql::Params>("CREATE TABLE IF NOT EXISTS uuid_cache (`uuid` varchar(36) NOT NULL, `signature` TEXT NOT NULL, `value` TEXT NOT NULL, `exp` bigint(64) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", mysql::params::Params::Empty) {
-            Ok(_) => {},
-            Err(e) => return Err(e.to_string())
-        }
-
-        match conn.exec::<usize, &str, mysql::Params>("CREATE TABLE IF NOT EXISTS player_cache (`uuid` varchar(36) PRIMARY KEY NOT NULL, `nickname` varchar(16) NOT NULL, `exp` bigint(64) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", mysql::params::Params::Empty) {
-            Ok(_) => {}
-            Err(e) => return Err(e.to_string())
-        }
-
+    pub fn migrate(&self) -> Result<()> {
+        let mut conn = self.get_conn()?;
+        migrations::migrations::runner().run(&mut conn)?;
         Ok(())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub struct Env {
     api_key:       String,
     db_host:        String,
@@ -56,41 +53,8 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn new() -> Result<Self, &'static str> {
-        use std::env::var;
-
-        let api_key = var("API_KEY");
-        if api_key.is_err() {
-            return Err("Environmental variabble 'API_KEY' is invalid or unset.");
-        }
-
-        let db_host = var("DB_HOST");
-        if db_host.is_err() {
-            return Err("Environmental variabble 'DB_HOST' is invalid or unset.");
-        }
-
-        let db_name = var("DB_NAME");
-        if db_name.is_err() {
-            return Err("Environmental variabble 'DB_NAME' is invalid or unset.");
-        }
-
-        let db_username = var("DB_USERNAME");
-        if db_username.is_err() {
-            return Err("Environmental variabble 'DB_USERNAME' is invalid or unset.");
-        }
-
-        let db_password = var("DB_PASSWORD");
-        if db_password.is_err() {
-            return Err("Environmental variabble 'DB_PASSWORD' is invalid or unset.");
-        }
-
-        Ok(Self {
-            api_key: api_key.unwrap(),
-            db_host: db_host.unwrap(),
-            db_name: db_name.unwrap(),
-            db_username: db_username.unwrap(),
-            db_password: db_password.unwrap()
-        })
+    pub fn new() -> Result<Self> {
+        Ok(envy::from_env()?)
     }
 }
 

@@ -1,29 +1,23 @@
-FROM rust:alpine as BUILDER
-RUN apk add --no-cache musl-dev openssl openssl-dev
+FROM docker-registry.k8s.array21.dev/rust-base:latest as BUILDER
 
-COPY ./src /usr/local/src/skinfixer_api/src/
-COPY ./Cargo.toml /usr/local/src/skinfixer_api/
+COPY ./src /usr/src/skinfixer_api/src/
+COPY ./Cargo.toml ./target* /usr/src/skinfixer_api/
+COPY ./migrations /usr/src/skinfixer_api/migrations/
 
+WORKDIR /usr/src/skinfixer_api/
 
-WORKDIR /usr/local/src/skinfixer_api
-
-RUN cargo build --release
-
+ENV RUSTFLAGS='-C link-arg=-s'
+RUN cargo +beta build --release --target x86_64-unknown-linux-musl
 
 FROM alpine:latest
-ENV GLIBC_REPO=https://github.com/sgerrand/alpine-pkg-glibc
-ENV GLIBC_VERSION=2.30-r0
+RUN apk add --no-cache ca-certificates
 
-RUN set -ex && \
-    apk --update add libstdc++ curl ca-certificates && \
-    for pkg in glibc-${GLIBC_VERSION} glibc-bin-${GLIBC_VERSION}; \
-        do curl -sSL ${GLIBC_REPO}/releases/download/${GLIBC_VERSION}/${pkg}.apk -o /tmp/${pkg}.apk; done && \
-    apk add --allow-untrusted /tmp/*.apk && \
-    rm -v /tmp/*.apk && \
-    /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib
+COPY --from=BUILDER /usr/src/skinfixer_api/target/x86_64/unknown-linux-musl/release/skinfixer_api /usr/bin/skinfixer_api
 
-RUN apk add --no-cache openssl ca-certificates
+RUN chmod a+rx /usr/local/bin/*
+RUN adduser skinfixer_api -s /bin/false -D -H
+USER skinfixer_api
 
-COPY --from=BUILDER /usr/local/src/skinfixer_api/target/release/skinfixer_api /usr/bin/skinfixer_api
 EXPOSE 8080
-CMD ["sh", "-c", "/usr/bin/skinfixer_api"]
+WORKDIR /usr/local/bin
+ENTRYPOINT [ "/usr/local/bin/skinfixer_api" ]

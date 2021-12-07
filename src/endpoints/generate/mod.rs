@@ -2,6 +2,7 @@ pub mod url;
 pub mod uuid;
 
 use serde::{Deserialize, Serialize};
+use paperclip::actix::Apiv2Schema;
 
 #[derive(Deserialize, Debug)]
 pub struct MineskinResponse {
@@ -31,7 +32,7 @@ pub struct MineskinTextureInfo {
     pub signature:  String
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Apiv2Schema)]
 pub struct UserResponse {
     pub value:      String,
     pub signature:  String,
