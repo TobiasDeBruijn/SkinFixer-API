@@ -9,7 +9,7 @@ pub struct Router;
 impl Routable for Router {
     fn configure(config: &mut ServiceConfig) {
         config.service(web::scope("/player")
-            // TODO
+            .route("/{name}", web::get().to(get::get))
         );
     }
 }

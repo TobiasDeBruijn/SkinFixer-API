@@ -1,6 +1,5 @@
 use actix_web::body::BoxBody;
-use actix_web::{CustomizeResponder, HttpRequest, HttpResponse, Responder};
-use actix_web::http::header::TryIntoHeaderPair;
+use actix_web::{HttpRequest, HttpResponse, Responder};
 use actix_web::http::StatusCode;
 
 pub struct Empty;

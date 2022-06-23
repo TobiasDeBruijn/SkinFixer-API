@@ -9,9 +9,13 @@ actix-cors = "0.6.1"
 thiserror = "1.0.31"
 tracing = "0.1.35"
 tracing-actix-web = "0.5.1"
+base64 = "0.13.0"
 
 [dependencies.dal]
 path = "../dal"
+
+[dependencies.api]
+path = "../api"
 
 [dependencies.paperclip]
 version = "0.7.0"

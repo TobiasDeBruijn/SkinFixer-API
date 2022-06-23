@@ -12,17 +12,14 @@ pub use crate::error::Error;
 pub use crate::appdata::Config;
 
 pub(crate) use crate::error::*;
+#[allow(unused)] // Will be used in the future
 pub(crate) use crate::empty::*;
 pub(crate) use crate::routable::*;
 pub(crate) use crate::appdata::*;
 
 /// Start the web server
 pub async fn start(dal: Dal, config: Config) -> std::io::Result<()> {
-    let appdata = AppData {
-        dal,
-        config
-    };
-
+    let appdata = AppData::new(dal, config);
 
     HttpServer::new(move || {
         App::new()

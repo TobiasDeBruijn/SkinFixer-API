@@ -5,6 +5,9 @@ use thiserror::Error;
 mod playername_cache;
 mod premium_skin_cache;
 
+pub use playername_cache::*;
+pub use premium_skin_cache::*;
+
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 /// After how many seconds does a cached skin expire
 pub(crate) const PREMIUM_SKIN_CACHE_TTL: i64 = 2_630_000; // 1 month
