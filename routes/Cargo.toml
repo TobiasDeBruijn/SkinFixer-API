@@ -1,0 +1,23 @@
+[package]
+name = "routes"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.1.0"
+actix-cors = "0.6.1"
+thiserror = "1.0.31"
+tracing = "0.1.35"
+tracing-actix-web = "0.5.1"
+
+[dependencies.dal]
+path = "../dal"
+
+[dependencies.paperclip]
+version = "0.7.0"
+default-features = false
+features = ["actix4", "path-in-definition"]
+
+[dependencies.serde]
+version = "1.0.137"
+features = ["derive"]

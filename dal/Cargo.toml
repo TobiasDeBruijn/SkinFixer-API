@@ -1,0 +1,18 @@
+[package]
+name = "dal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0.31"
+time = "0.3.11"
+
+[dependencies.mysql]
+version = "=22.0.0"
+default-features = false
+features = ["rustls-tls"]
+
+[dependencies.refinery]
+version = "0.8.4"
+default-features = false
+features = ["mysql"]
