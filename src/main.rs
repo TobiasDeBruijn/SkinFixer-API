@@ -1,65 +1,62 @@
-use std::process::exit;
 use crate::appdata::{AppData, Env};
-use actix_web::{HttpServer, App};
 use actix_cors::Cors;
-use actix_web::middleware::{Logger, NormalizePath};
-use actix_web::middleware::normalize::TrailingSlash;
-use log::{info, error, debug};
-use paperclip::actix::OpenApiExt;
-pub use crate::error::{Result, Error};
+use actix_route_config::Routable;
+use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
+use actix_web::{web, App, HttpServer};
+use tracing::{debug, info};
+use tracing_subscriber::fmt::layer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
-mod error;
-mod endpoints;
+pub use crate::error::Result;
+
+mod api;
 mod appdata;
-mod cache;
+mod database;
+mod empty;
+mod error;
+mod key_rotation;
+mod routes;
 
 #[actix_web::main()]
-async fn main() -> std::io::Result<()> {
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", format!("{}=INFO", env!("CARGO_PKG_NAME")));
-    }
-    env_logger::init();
-    info!("Starting {} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+async fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+    install_tracing();
+
+    info!(
+        "Starting {} v{}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    );
 
     debug!("Reading environment");
-    let env = match Env::new() {
-        Ok(e) => e,
-        Err(e) => {
-            error!("Failed to read environment: {:?}", e);
-            exit(1);
-        }
-    };
-
+    let env = Env::new()?;
     debug!("Creating AppData instance");
-    let appdata = match AppData::new(&env) {
-        Ok(a) => a,
-        Err(e) => {
-            error!("Failed to create AppData instance: {:?}", e);
-            exit(1);
-        }
-    };
+    let appdata = AppData::new(&env).await?;
 
-    debug!("Running migrations");
-    match appdata.migrate() {
-        Ok(_) => {},
-        Err(e) => {
-            error!("Failed to run migrations: {:?}", e);
-            exit(1);
-        }
-    }
-
-    HttpServer::new(move ||
+    HttpServer::new(move || {
         App::new()
-            .wrap_api()
             .wrap(Cors::permissive())
             .wrap(Logger::default())
             .wrap(NormalizePath::new(TrailingSlash::Trim))
-            .data(appdata.clone())
-            .service(crate::endpoints::generate::url::generate)
-            .service(crate::endpoints::generate::uuid::generate)
-            .service(crate::endpoints::up::up)
-            .service(crate::endpoints::player::get_by_name)
-            .with_json_spec_at("/spec")
-            .build()
-    ).bind("[::]:8080")?.run().await
+            .app_data(web::Data::new(appdata.clone()))
+            .configure(routes::Router::configure)
+    })
+    .bind("[::]:8080")?
+    .run()
+    .await?;
+
+    Ok(())
+}
+
+fn install_tracing() {
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", format!("{}=INFO", env!("CARGO_PKG_NAME")));
+    }
+
+    tracing_subscriber::registry()
+        .with(layer().compact())
+        .with(EnvFilter::from_default_env())
+        .init();
 }

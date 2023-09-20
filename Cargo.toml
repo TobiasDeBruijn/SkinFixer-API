@@ -1,56 +1,25 @@
 [package]
 name = "skinfixer_api"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Tobias de Bruijn <t.debruijn@array21.dev>"]
 edition = "2021"
 
 [dependencies]
-actix-web = "3.3.2"
-actix-cors = "0.5.4"
+actix-web = "4"
+actix-cors = "0.6.4"
+actix-route-config = "0.1.1"
 serde_json = "1.0.64"
 rand = "0.8.3"
-base64 = "0.13.0"
+base64 = "0.21.4"
 time = "0.3.5"
-log = "0.4.14"
-env_logger = "0.9.0"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tracing-actix-web = "0.7.6"
+noiseless-tracing-actix-web = "0.1.0"
 thiserror = "1.0.30"
 envy = "0.4.2"
 futures-util = "0.3.18"
-
-[dependencies.serde]
-version = "1.0.130"
-features = ["derive"]
-
-[dependencies.reqwest]
-version = "0.11.7"
-default-features = false
-features = ["blocking", "json", "rustls-tls"]
-
-[dependencies.paperclip]
-version = "0.6.1"
-features = ["actix", "actix-multipart"]
-
-[dependencies.refinery]
-version = "0.7.0"
-features = ["mysql-notls"]
-
-[dependencies.mysql]
-version = "21.0.2"
-default-features = false
-
-[patch.crates-io.mysql]
-git = "https://github.com/TheDutchMC/rust-mysql-simple"
-
-[patch.crates-io.refinery]
-git = "https://github.com/TheDutchMC/refinery"
-
-[patch.crates-io.refinery-core]
-git = "https://github.com/TheDutchMC/refinery"
-
-[patch.crates-io.paperclip]
-git = "https://github.com/TheDutchMC/paperclip"
-branch = "add-random-prefix-to-definition"
-
-[profile.release]
-lto = true
-panic = "abort"
+serde = { version = "1.0.188", features = ["derive"] }
+reqwest = { version = "0.11.20", default-features = false, features = ["json", "rustls-tls"]}
+sqlx = { version = "0.7.1", features = ["mysql", "runtime-tokio-rustls", "migrate"] }
+color-eyre = "0.6.2"
