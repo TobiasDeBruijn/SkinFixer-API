@@ -3,7 +3,8 @@ use crate::key_rotation::KeyRotation;
 use crate::Result;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
+use std::fmt::Debug;
+use tracing::{instrument, warn};
 
 const MINESKIN_API_URL: &str = "https://api.mineskin.org/generate/url";
 const MINESKIN_API_UUID: &str = "https://api.mineskin.org/generate/user";
@@ -16,68 +17,50 @@ fn random_name() -> String {
         .collect()
 }
 
+#[instrument(skip(rotation))]
 pub async fn skin_by_uuid(rotation: &KeyRotation, uuid: &str) -> Result<MineskinTextureInfo> {
-    let key = rotation.get_key();
-    let url = format!("{}?key={}", MINESKIN_API_UUID, key);
-
-    let data = make_mineskin_request(&url, &MineskinRequest::from_uuid(uuid)).await?;
+    let key = rotation.next_key();
+    let data =
+        make_mineskin_request(MINESKIN_API_UUID, &MineskinRequest::from_uuid(uuid), key).await?;
 
     Ok(data.texture)
 }
 
+#[instrument(skip(rotation))]
 pub async fn skin_by_url(rotation: &KeyRotation, skin_url: &str) -> Result<MineskinTextureInfo> {
-    let key = rotation.get_key();
-    let url = format!("{}?key={}", MINESKIN_API_URL, key);
-
-    let data = make_mineskin_request(&url, &MineskinRequest::from_url(skin_url)).await?;
+    let key = rotation.next_key();
+    let data =
+        make_mineskin_request(MINESKIN_API_URL, &MineskinRequest::from_url(skin_url), key).await?;
     Ok(data.texture)
 }
 
-async fn make_mineskin_request<T: Serialize + ?Sized>(
+#[instrument]
+async fn make_mineskin_request<T: Serialize + ?Sized + Debug>(
     url: &str,
     payload: &T,
+    key: &str,
 ) -> Result<MineskinSkinData> {
     let response: MineskinResponse = reqwest::Client::new()
         .post(url)
-        .header("User-Agent", "SkinFixer-API")
-        .header("Content-Type", "application/json")
+        .header("User-Agent", "skinfixer/v1.0")
+        .bearer_auth(key)
         .json(payload)
         .send()
         .await?
+        .error_for_status()?
         .json()
         .await?;
-
-    check_mineskin_error(&response)?;
 
     match response.data {
         Some(r) => Ok(r),
         None => {
             warn!("MineSkinError: {:?}", response.error);
-
             Err(Error::InternalServer)
         }
     }
 }
 
-fn check_mineskin_error(response: &MineskinResponse) -> Result<()> {
-    if let Some(error) = &response.error {
-        if let Some(error_code) = &error.error_code {
-            warn!("MineSkinError: {:?}", &error);
-            return Err(Error::BadRequest(error_code.to_string()));
-        }
-
-        if error.next_request.is_some() {
-            return Err(Error::TooManyRequests);
-        }
-
-        warn!("MineSkinError: {:?}", &error);
-        Err(Error::InternalServer)
-    } else {
-        Ok(())
-    }
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct MineskinRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     uuid: Option<&'a str>,

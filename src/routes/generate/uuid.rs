@@ -4,8 +4,9 @@ use crate::Result;
 use actix_web::web;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
+use tracing::{info, instrument};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Path {
     uuid: String,
 }
@@ -17,11 +18,12 @@ pub struct Response {
 }
 
 /// Generate skin data for the player with the provided UUID. Note that the UUID must be Base64-encoded
+#[instrument(skip_all)]
 pub async fn generate(
     path: web::Path<Path>,
     data: web::Data<AppData>,
 ) -> Result<web::Json<Response>> {
-    let uuid = base64::prelude::BASE64_STANDARD.decode(&path.uuid)?;
+    let uuid = base64::prelude::BASE64_URL_SAFE.decode(&path.uuid)?;
     let uuid = String::from_utf8(uuid)?;
 
     // Check the cache
@@ -37,7 +39,7 @@ pub async fn generate(
         None => {}
     };
 
-    let skin_data = skin_by_uuid(&data.keys, &path.uuid).await?;
+    let skin_data = skin_by_uuid(&data.keys, &uuid).await?;
     crate::database::set_uuid(&data, &uuid, &skin_data.signature, &skin_data.value).await?;
 
     let user_response = Response {

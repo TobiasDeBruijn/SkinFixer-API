@@ -1,9 +1,11 @@
 use crate::appdata::{AppData, Env};
 use actix_cors::Cors;
 use actix_route_config::Routable;
-use actix_web::middleware::{Logger, NormalizePath, TrailingSlash};
+use actix_web::middleware::{NormalizePath, TrailingSlash};
 use actix_web::{web, App, HttpServer};
+use noiseless_tracing_actix_web::NoiselessRootSpanBuilder;
 use tracing::{debug, info};
+use tracing_actix_web::TracingLogger;
 use tracing_subscriber::fmt::layer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -38,7 +40,7 @@ async fn main() -> color_eyre::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Cors::permissive())
-            .wrap(Logger::default())
+            .wrap(TracingLogger::<NoiselessRootSpanBuilder>::new())
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .app_data(web::Data::new(appdata.clone()))
             .configure(routes::Router::configure)

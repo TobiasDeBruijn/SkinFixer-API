@@ -4,6 +4,7 @@ use sqlx::migrate::Migrator;
 use sqlx::mysql::MySqlConnectOptions;
 use sqlx::sqlx_macros::migrate;
 use sqlx::{MySql, Pool};
+use tracing::debug;
 
 #[derive(Clone, Debug)]
 pub struct AppData {
@@ -15,7 +16,12 @@ const MIGRATOR: Migrator = migrate!("./migrations");
 
 impl AppData {
     pub async fn new(env: &Env) -> color_eyre::Result<Self> {
-        let key_vec: Vec<String> = env.api_key.split(",").map(|c| c.to_string()).collect();
+        let key_vec = env
+            .api_key
+            .split(",")
+            .map(|c| c.to_string())
+            .collect::<Vec<_>>();
+        debug!("Using {} MineSkin API Keys.", key_vec.len());
         let keys = KeyRotation::new(key_vec);
 
         let opts = MySqlConnectOptions::new()

@@ -1,16 +1,17 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct KeyRotation {
     keys: Vec<String>,
-    index: AtomicUsize,
+    index: Arc<AtomicUsize>,
 }
 
 impl Clone for KeyRotation {
     fn clone(&self) -> Self {
         Self {
             keys: self.keys.clone(),
-            index: AtomicUsize::new(self.index.load(Ordering::SeqCst)),
+            index: self.index.clone(),
         }
     }
 }
@@ -19,24 +20,34 @@ impl KeyRotation {
     pub fn new(keys: Vec<String>) -> Self {
         Self {
             keys,
-            index: AtomicUsize::new(0),
+            index: Arc::new(AtomicUsize::new(0)),
         }
     }
 
-    fn increment_index(&self) {
-        let new_index = self.index.load(Ordering::SeqCst);
-        if new_index > self.keys.len() {
-            self.index.store(0, Ordering::SeqCst);
-        }
+    fn get_index(&self) -> usize {
+        self.index.load(Ordering::SeqCst)
+    }
 
+    fn set_index(&self, new_index: usize) {
         self.index.store(new_index, Ordering::SeqCst);
     }
 
-    pub fn get_key(&self) -> &String {
-        let index = self.index.load(Ordering::SeqCst);
+    fn increment_index(&self) {
+        let new_index = self.get_index() + 1;
+
+        if new_index >= self.keys.len() {
+            self.set_index(0);
+        } else {
+            self.set_index(new_index);
+        }
+    }
+
+    pub fn next_key(&self) -> &String {
+        let index = self.get_index();
         self.increment_index();
 
-        let key = self.keys.get(index).unwrap();
-        key
+        self.keys
+            .get(index)
+            .unwrap_or_else(|| self.keys.first().unwrap())
     }
 }

@@ -12,6 +12,7 @@ impl Routable for Router {
     fn configure(config: &mut ServiceConfig) {
         config
             .route("/player/{nickname}", web::get().to(player::get_by_name))
-            .route("/health", web::get().to(health::up));
+            .route("/health", web::get().to(health::up))
+            .configure(generate::Router::configure);
     }
 }
